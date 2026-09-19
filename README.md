@@ -128,17 +128,35 @@ server/            Node 控制服务（零运行时依赖）
   lib/recordings.js  录制文件索引
   lib/transcode.js   H.264 转码通道管理
 ui/                控制台界面（原生 HTML/CSS/JS，无构建步骤）
-scripts/           打包前置（复制 node/mediamtx/ffmpeg 到 vendor/）与收尾签名安装
+scripts/           prepare-bundle.js 复制 node/mediamtx/ffmpeg 到 vendor/
+                   finalize-bundle.js 做 ad-hoc 签名并安装到 /Applications
+                   make-icon.py       生成图标母图（改设计时才需要）
 src-tauri/         Tauri 桌面壳（窗口加载本地控制台；打包态负责拉起 Node）
+.github/workflows/ ci.yml 语法与 cargo check；release.yml 打 tag 自动出包
 ```
 
 `vendor/`、`data/`、`recordings/`、`src-tauri/target/` 都已在 `.gitignore` 中。
+
+### 自动构建与 Release
+
+推一个版本号 tag 就会由 GitHub Actions 构建 Apple Silicon 与 Intel 两份 `.app` / `.dmg` 并挂到 Release：
+
+```bash
+git tag v0.1.0 && git push origin v0.1.0
+```
+
+产物**没有做 Apple 开发者签名**（只有 ad-hoc 签名），所以别人首次打开会被 Gatekeeper 拦。两种放行方式：右键图标 → 打开；或
+
+```bash
+xattr -dr com.apple.quarantine "/Applications/LocalRTMP Studio.app"
+```
+
+改图标设计：`python3 scripts/make-icon.py && npx tauri icon src-tauri/app-icon.png`。
 
 ### 已知限制
 
 - 仅 macOS 验证过（Linux 理论上可用，未测试）
 - 转码要求本机或包内有 `ffmpeg`；打包脚本从本机 Homebrew 复制，因此**分发 .app 时请自行确认 ffmpeg 的 GPL 合规性**
-- 图标目前是 Tauri 默认图标，未做品牌设计
 - 录制格式为 fMP4 / MPEG-TS，不转码封装为单文件 MP4
 
 ---
