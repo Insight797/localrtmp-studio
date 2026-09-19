@@ -1,0 +1,7 @@
+node_modules/
+vendor/
+data/
+recordings/
+src-tauri/target/
+src-tauri/gen/
+.DS_Store

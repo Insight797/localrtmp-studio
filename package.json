@@ -1,0 +1,25 @@
+{
+  "name": "localrtmp-studio",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "Mac 本地 RTMP 推拉流服务器（MediaMTX 内核 + 轻量控制台），给索尼/大疆相机推到 OBS",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Insight797/localrtmp-studio.git"
+  },
+  "author": "Insight797",
+  "scripts": {
+    "start": "node server/index.js",
+    "app": "tauri dev",
+    "app:build": "node scripts/prepare-bundle.js && tauri build && node scripts/finalize-bundle.js",
+    "tauri": "tauri"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

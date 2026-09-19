@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>LocalRTMP Studio</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <span class="logo">▶</span>
+        <div>
+          <h1>LocalRTMP Studio</h1>
+          <p class="sub" id="engineLine">检测中…</p>
+        </div>
+      </div>
+      <div class="topActions">
+        <span class="statusPill" id="statusPill">未运行</span>
+        <button class="btn primary" id="btnStart">启动服务</button>
+        <button class="btn" id="btnStop" disabled>停止</button>
+        <button class="btn" id="btnRestart" disabled>重启</button>
+      </div>
+    </header>
+
+    <div class="banner warn hidden" id="binaryBanner">
+      <span>没有找到 mediamtx 可执行文件。安装一次即可：<code>brew install mediamtx</code></span>
+      <button class="btn tiny" data-copy="brew install mediamtx">复制命令</button>
+    </div>
+    <div class="banner error hidden" id="errorBanner">
+      <span id="errorText"></span>
+      <button class="btn tiny" id="errorDismiss">忽略</button>
+    </div>
+
+    <main class="layout">
+      <aside class="side">
+        <section class="card">
+          <h2>相机推流地址</h2>
+          <label class="fieldLabel">选择本机网卡（相机需与该机在同一网络）</label>
+          <select id="hostSelect" class="input"></select>
+          <div class="copyRow">
+            <code id="pushBase" class="mono"></code>
+            <button class="btn tiny" id="copyPushBase">复制</button>
+          </div>
+          <p class="hint">相机里填「服务器/URL + 路径」时：<b>服务器</b>=<span id="pushHostOnly" class="mono"></span>，<b>路径</b>=<span class="mono">live/设备名</span>；填「完整 RTMP 地址」时直接复制下面的完整链接。</p>
+        </section>
+
+        <section class="card">
+          <h2>录制</h2>
+          <label class="switch">
+            <input type="checkbox" id="recEnabled" />
+            <span>推流即录制（fMP4 分片）</span>
+          </label>
+          <div class="grid2">
+            <div>
+              <label class="fieldLabel">格式</label>
+              <select id="recFormat" class="input">
+                <option value="fmp4">fmp4</option>
+                <option value="mpegts">mpegts</option>
+              </select>
+            </div>
+            <div>
+              <label class="fieldLabel">单文件时长</label>
+              <input id="recSegment" class="input" placeholder="1h" />
+            </div>
+            <div>
+              <label class="fieldLabel">分片时长</label>
+              <input id="recPart" class="input" placeholder="1s" />
+            </div>
+            <div>
+              <label class="fieldLabel">自动清理</label>
+              <input id="recDelete" class="input" placeholder="0s" />
+            </div>
+          </div>
+          <button class="btn" id="btnSaveRecord">应用录制设置</button>
+          <div class="recMeta">
+            <span id="recSummary">—</span>
+            <button class="btn tiny" id="btnOpenRecords">打开目录</button>
+          </div>
+          <ul class="fileList" id="recList"></ul>
+        </section>
+
+        <section class="card">
+          <h2>服务设置</h2>
+          <div class="grid2">
+            <div>
+              <label class="fieldLabel">RTMP 端口</label>
+              <input id="cfgRtmp" class="input" type="number" />
+            </div>
+            <div>
+              <label class="fieldLabel">HLS 端口</label>
+              <input id="cfgHls" class="input" type="number" />
+            </div>
+            <div>
+              <label class="fieldLabel">WebRTC 端口</label>
+              <input id="cfgWebrtc" class="input" type="number" />
+            </div>
+            <div>
+              <label class="fieldLabel">API 端口</label>
+              <input id="cfgApi" class="input" type="number" />
+            </div>
+            <div>
+              <label class="fieldLabel">转码默认码率 (kbps)</label>
+              <input id="cfgTranscode" class="input" type="number" min="500" step="500" />
+            </div>
+          </div>
+          <label class="switch"><input type="checkbox" id="cfgLan" /><span>允许局域网设备接入（相机走 WiFi）</span></label>
+          <label class="switch"><input type="checkbox" id="cfgAuto" /><span>打开控制台自动启动服务</span></label>
+          <label class="switch"><input type="checkbox" id="cfgRtsp" /><span>启用 RTSP（索尼部分机型 / 有线网络推流）</span></label>
+          <label class="fieldLabel">mediamtx 路径（留空自动探测）</label>
+          <input id="cfgBinary" class="input" placeholder="/opt/homebrew/bin/mediamtx" />
+          <button class="btn" id="btnSaveSettings">保存并重启流服务</button>
+        </section>
+      </aside>
+
+      <div class="main">
+        <section class="card">
+          <h2>实时流 <span class="count" id="streamCount">0</span></h2>
+          <div class="tableWrap">
+            <table class="table" id="streamTable">
+              <thead>
+                <tr>
+                  <th>路径</th>
+                  <th>画面</th>
+                  <th>码率</th>
+                  <th>拉流</th>
+                  <th>来源</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <p class="hint" id="noStreamHint">
+            还没有流。相机按上面的地址推流后会自动出现在这里（无需预先配置路径）。
+          </p>
+          <p class="hint hidden" id="ffmpegHint">
+            没检测到 ffmpeg，「转 H.264」不可用。装一次即可：<code>brew install ffmpeg</code>
+          </p>
+          <div class="previewBox hidden" id="previewBox">
+            <div class="previewHead">
+              <span id="previewTitle">预览</span>
+              <div>
+                <span class="previewMode" id="previewMode"></span>
+                <button class="btn tiny" id="btnPreviewMode">切换 HLS/WebRTC</button>
+                <button class="btn tiny" id="btnPreviewStop">关闭预览</button>
+              </div>
+            </div>
+            <video id="previewVideo" autoplay playsinline controls></video>
+            <div class="obsHint">
+              <b>OBS 拉流：</b>来源 → 媒体 → 取消勾选「本地文件」→ 输入下面任一地址（黑屏时把「输入格式」填 <code>rtmp</code>）
+              <div class="copyRow" id="obsUrls"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>设备预设 <span class="count" id="presetCount">0</span></h2>
+          <div class="presetGrid" id="presetGrid"></div>
+          <form class="presetForm" id="presetForm">
+            <input type="hidden" id="pfId" />
+            <div class="grid2">
+              <div>
+                <label class="fieldLabel">名称</label>
+                <input id="pfName" class="input" placeholder="索尼 A7M4 主机位" required />
+              </div>
+              <div>
+                <label class="fieldLabel">设备类型</label>
+                <select id="pfDevice" class="input">
+                  <option value="sony">Sony 索尼</option>
+                  <option value="dji">DJI 大疆</option>
+                  <option value="gopro">GoPro / 运动相机</option>
+                  <option value="custom">其它</option>
+                </select>
+              </div>
+              <div>
+                <label class="fieldLabel">推流路径</label>
+                <input id="pfPath" class="input" placeholder="live/a7m4" pattern="[A-Za-z0-9._/\-]+" required />
+              </div>
+              <div>
+                <label class="fieldLabel">建议码率 (kbps)</label>
+                <input id="pfBitrate" class="input" type="number" min="0" step="500" placeholder="8000" />
+              </div>
+              <div>
+                <label class="fieldLabel">分辨率 / 帧率</label>
+                <input id="pfResolution" class="input" placeholder="1080p50" />
+              </div>
+              <div>
+                <label class="fieldLabel">备注</label>
+                <input id="pfNotes" class="input" placeholder="H.264 High + AAC 48k" />
+              </div>
+            </div>
+            <div class="formActions">
+              <button type="submit" class="btn primary" id="pfSave">保存预设</button>
+              <button type="button" class="btn" id="pfReset">清空</button>
+            </div>
+          </form>
+        </section>
+
+        <section class="card">
+          <h2>服务日志</h2>
+          <pre class="logBox" id="logBox">—</pre>
+        </section>
+      </div>
+    </main>
+
+    <div class="toast" id="toast"></div>
+    <script src="/app.js"></script>
+  </body>
+</html>

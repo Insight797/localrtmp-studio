@@ -1,0 +1,40 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "LocalRTMP Studio",
+  "version": "0.1.0",
+  "identifier": "studio.localrtmp.app",
+  "build": {
+    "frontendDist": "../ui",
+    "devUrl": "http://127.0.0.1:8787",
+    "beforeDevCommand": "node server/index.js"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "LocalRTMP Studio",
+        "url": "http://127.0.0.1:8787",
+        "width": 1240,
+        "height": 820,
+        "minWidth": 940,
+        "minHeight": 620,
+        "resizable": true,
+        "fullscreen": false
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["app"],
+    "resources": ["../server", "../ui", "../vendor"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
+  }
+}
