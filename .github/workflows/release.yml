@@ -1,7 +1,7 @@
 name: Release
 
 # 打 tag（例如 v0.1.0）即自动构建 macOS .app / .dmg 并发布到 GitHub Releases。
-# 也可以手动触发（Actions 页面 → Release → Run workflow）。
+# 也可以手动触发（Actions 页面 → Release → Run workflow），产物作为 artifact 保留。
 
 on:
   push:
@@ -15,6 +15,7 @@ permissions:
 jobs:
   build-macos:
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: macos-14
@@ -26,9 +27,9 @@ jobs:
     name: macOS (${{ matrix.label }})
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
 
@@ -50,27 +51,34 @@ jobs:
       - name: 准备随包运行时
         run: node scripts/prepare-bundle.js
 
-      - name: 构建并签名（ad-hoc）
-        uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          args: --target ${{ matrix.target }} --bundles app,dmg
-          includeRelease: ${{ startsWith(github.ref, 'refs/tags/v') }}
-          includeDebug: false
+      - name: 构建 .app 与 .dmg
+        run: npx tauri build --target ${{ matrix.target }} --bundles app,dmg
 
-      - name: 收集产物
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: ad-hoc 签名
+        run: codesign --force --deep --sign - "src-tauri/target/${{ matrix.target }}/release/bundle/macos/LocalRTMP Studio.app"
+
+      - name: 整理产物
         run: |
           mkdir -p dist
-          cp -R "src-tauri/target/${{ matrix.target }}/release/bundle/macos/LocalRTMP Studio.app" "dist/LocalRTMP Studio-${{ matrix.label }}.app"
-          cp src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg "dist/LocalRTMP Studio-${{ matrix.label }}.dmg"
-          cd dist && zip -qry "LocalRTMP Studio-${{ matrix.label }}.app.zip" "LocalRTMP Studio-${{ matrix.label }}.app"
-          rm -rf "LocalRTMP Studio-${{ matrix.label }}.app"
+          B="src-tauri/target/${{ matrix.target }}/release/bundle"
+          cp -R "$B/macos/LocalRTMP Studio.app" "dist/LocalRTMP Studio-${{ matrix.label }}.app"
+          (cd dist && zip -qry "LocalRTMP Studio-${{ matrix.label }}.app.zip" "LocalRTMP Studio-${{ matrix.label }}.app" && rm -rf "LocalRTMP Studio-${{ matrix.label }}.app")
+          cp "$B"/dmg/*.dmg "dist/LocalRTMP Studio-${{ matrix.label }}.dmg"
+          ls -lh dist
 
-      - name: 上传到 Release
+      - name: 发布到 GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
           files: dist/*
           generate_release_notes: true
+          body: |
+            未做 Apple 开发者签名（仅 ad-hoc）。首次打开被 Gatekeeper 拦时：右键图标 → 打开，
+            或执行 `xattr -dr com.apple.quarantine "/Applications/LocalRTMP Studio.app"`。
+
+      - name: 保留构建产物（非 tag 触发）
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: localrtmp-studio-${{ matrix.label }}
+          path: dist/*

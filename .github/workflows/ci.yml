@@ -10,14 +10,11 @@ jobs:
     name: 语法与 Rust 检查
     runs-on: macos-14
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
-
-      - name: 安装 mediamtx（生成配置时需要读取默认值）
-        run: brew install mediamtx
 
       - uses: dtolnay/rust-toolchain@stable
 
@@ -27,6 +24,10 @@ jobs:
 
       - name: 安装依赖
         run: npm ci
+
+      # tauri-build 会校验 bundle.resources，vendor/ 是打包时生成的、不入库
+      - name: 占位随包运行时目录
+        run: mkdir -p vendor
 
       - name: 检查 JS 语法
         run: |
