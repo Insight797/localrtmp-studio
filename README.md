@@ -1,5 +1,9 @@
 # LocalRTMP Studio
 
+[![Release](https://img.shields.io/github/v/release/Insight797/localrtmp-studio?color=3fb950)](https://github.com/Insight797/localrtmp-studio/releases)
+[![CI](https://img.shields.io/github/actions/workflow/status/Insight797/localrtmp-studio/ci.yml?branch=main&label=CI)](https://github.com/Insight797/localrtmp-studio/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-2f81f7)](LICENSE)
+
 一个跑在 macOS 上的本地 RTMP 推拉流服务器，带轻量桌面界面。把索尼 / 大疆等相机的 RTMP 流收进来，再喂给 OBS。
 
 A local RTMP server for macOS with a lightweight desktop UI. It ingests RTMP from cameras (Sony, DJI, …) and hands the streams to OBS.
@@ -40,7 +44,9 @@ MediaMTX 负责所有流媒体工作，本项目负责配置生成、状态聚�
 
 ### 快速开始
 
-**用打包好的 App**
+**直接下载（最省事）**：到 [Releases](https://github.com/Insight797/localrtmp-studio/releases/latest) 取 `LocalRTMP Studio-apple-silicon.dmg`。包内已自带 `node` / `mediamtx` / `ffmpeg`，拖进「应用程序」即可用（仅 Apple Silicon；首次打开右键 → 打开）。
+
+**用打包好的 App（自己构建）**
 
 ```bash
 brew install mediamtx        # 开发依赖，若只用打包版可跳过
