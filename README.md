@@ -139,11 +139,13 @@ src-tauri/         Tauri 桌面壳（窗口加载本地控制台；打包态负�
 
 ### 自动构建与 Release
 
-推一个版本号 tag 就会由 GitHub Actions 构建 Apple Silicon 与 Intel 两份 `.app` / `.dmg` 并挂到 Release：
+推一个版本号 tag 就会由 GitHub Actions 构建 Apple Silicon 的 `.app` / `.dmg` 并挂到 Release：
 
 ```bash
 git tag v0.1.0 && git push origin v0.1.0
 ```
+
+只出 arm64 包：GitHub 的 Intel macOS runner 已退役、排不到机器。需要 Intel 包就在 Intel Mac 上跑一次 `npm ci && npm run app:build`。
 
 产物**没有做 Apple 开发者签名**（只有 ad-hoc 签名），所以别人首次打开会被 Gatekeeper 拦。两种放行方式：右键图标 → 打开；或
 

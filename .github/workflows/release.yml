@@ -2,6 +2,9 @@ name: Release
 
 # 打 tag（例如 v0.1.0）即自动构建 macOS .app / .dmg 并发布到 GitHub Releases。
 # 也可以手动触发（Actions 页面 → Release → Run workflow），产物作为 artifact 保留。
+#
+# 只构建 Apple Silicon：GitHub 的 Intel macOS runner 已退役，排不到机器。
+# 需要 Intel 包时，在 Intel Mac 上执行 `npm ci && npm run app:build`。
 
 on:
   push:
@@ -12,20 +15,14 @@ on:
 permissions:
   contents: write
 
+env:
+  TARGET: aarch64-apple-darwin
+  LABEL: apple-silicon
+
 jobs:
   build-macos:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: macos-14
-            target: aarch64-apple-darwin
-            label: apple-silicon
-          - os: macos-13
-            target: x86_64-apple-darwin
-            label: intel
-    name: macOS (${{ matrix.label }})
-    runs-on: ${{ matrix.os }}
+    name: macOS (${{ env.LABEL }})
+    runs-on: macos-14
     steps:
       - uses: actions/checkout@v5
 
@@ -38,7 +35,7 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.target }}
+          targets: ${{ env.TARGET }}
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -52,18 +49,18 @@ jobs:
         run: node scripts/prepare-bundle.js
 
       - name: 构建 .app 与 .dmg
-        run: npx tauri build --target ${{ matrix.target }} --bundles app,dmg
+        run: npx tauri build --target ${{ env.TARGET }} --bundles app,dmg
 
       - name: ad-hoc 签名
-        run: codesign --force --deep --sign - "src-tauri/target/${{ matrix.target }}/release/bundle/macos/LocalRTMP Studio.app"
+        run: codesign --force --deep --sign - "src-tauri/target/${{ env.TARGET }}/release/bundle/macos/LocalRTMP Studio.app"
 
       - name: 整理产物
         run: |
           mkdir -p dist
-          B="src-tauri/target/${{ matrix.target }}/release/bundle"
-          cp -R "$B/macos/LocalRTMP Studio.app" "dist/LocalRTMP Studio-${{ matrix.label }}.app"
-          (cd dist && zip -qry "LocalRTMP Studio-${{ matrix.label }}.app.zip" "LocalRTMP Studio-${{ matrix.label }}.app" && rm -rf "LocalRTMP Studio-${{ matrix.label }}.app")
-          cp "$B"/dmg/*.dmg "dist/LocalRTMP Studio-${{ matrix.label }}.dmg"
+          B="src-tauri/target/${{ env.TARGET }}/release/bundle"
+          cp -R "$B/macos/LocalRTMP Studio.app" "dist/LocalRTMP Studio-${{ env.LABEL }}.app"
+          (cd dist && zip -qry "LocalRTMP Studio-${{ env.LABEL }}.app.zip" "LocalRTMP Studio-${{ env.LABEL }}.app" && rm -rf "LocalRTMP Studio-${{ env.LABEL }}.app")
+          cp "$B"/dmg/*.dmg "dist/LocalRTMP Studio-${{ env.LABEL }}.dmg"
           ls -lh dist
 
       - name: 发布到 GitHub Release
@@ -73,12 +70,13 @@ jobs:
           files: dist/*
           generate_release_notes: true
           body: |
-            未做 Apple 开发者签名（仅 ad-hoc）。首次打开被 Gatekeeper 拦时：右键图标 → 打开，
-            或执行 `xattr -dr com.apple.quarantine "/Applications/LocalRTMP Studio.app"`。
+            仅 Apple Silicon（arm64）。未做 Apple 开发者签名（只有 ad-hoc），
+            首次打开被 Gatekeeper 拦时：右键图标 → 打开，或执行
+            `xattr -dr com.apple.quarantine "/Applications/LocalRTMP Studio.app"`。
 
       - name: 保留构建产物（非 tag 触发）
         if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
         uses: actions/upload-artifact@v4
         with:
-          name: localrtmp-studio-${{ matrix.label }}
+          name: localrtmp-studio-${{ env.LABEL }}
           path: dist/*
