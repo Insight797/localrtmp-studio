@@ -21,7 +21,7 @@ env:
 
 jobs:
   build-macos:
-    name: macOS (${{ env.LABEL }})
+    name: macOS (Apple Silicon)
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v5
