@@ -1,0 +1,76 @@
+name: Release
+
+# 打 tag（例如 v0.1.0）即自动构建 macOS .app / .dmg 并发布到 GitHub Releases。
+# 也可以手动触发（Actions 页面 → Release → Run workflow）。
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-macos:
+    strategy:
+      matrix:
+        include:
+          - os: macos-14
+            target: aarch64-apple-darwin
+            label: apple-silicon
+          - os: macos-13
+            target: x86_64-apple-darwin
+            label: intel
+    name: macOS (${{ matrix.label }})
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: 安装构建依赖
+        run: brew install mediamtx ffmpeg
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: 安装 npm 依赖
+        run: npm ci
+
+      # 把 node / mediamtx / ffmpeg 复制进 vendor/，由 tauri 打进 .app
+      - name: 准备随包运行时
+        run: node scripts/prepare-bundle.js
+
+      - name: 构建并签名（ad-hoc）
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          args: --target ${{ matrix.target }} --bundles app,dmg
+          includeRelease: ${{ startsWith(github.ref, 'refs/tags/v') }}
+          includeDebug: false
+
+      - name: 收集产物
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          mkdir -p dist
+          cp -R "src-tauri/target/${{ matrix.target }}/release/bundle/macos/LocalRTMP Studio.app" "dist/LocalRTMP Studio-${{ matrix.label }}.app"
+          cp src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg "dist/LocalRTMP Studio-${{ matrix.label }}.dmg"
+          cd dist && zip -qry "LocalRTMP Studio-${{ matrix.label }}.app.zip" "LocalRTMP Studio-${{ matrix.label }}.app"
+          rm -rf "LocalRTMP Studio-${{ matrix.label }}.app"
+
+      - name: 上传到 Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true

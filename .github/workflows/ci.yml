@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    name: 语法与 Rust 检查
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: 安装 mediamtx（生成配置时需要读取默认值）
+        run: brew install mediamtx
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: 安装依赖
+        run: npm ci
+
+      - name: 检查 JS 语法
+        run: |
+          for f in server/index.js server/lib/*.js scripts/*.js ui/app.js; do
+            node --check "$f"
+          done
+
+      - name: 检查 Rust
+        run: cargo check --manifest-path src-tauri/Cargo.toml
